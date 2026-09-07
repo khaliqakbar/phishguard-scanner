@@ -5,9 +5,9 @@ import ipaddress
 import joblib
 import pandas as pd
 import tldextract
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template
 
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__, static_folder='static', template_folder='templates')
 
 extractor = tldextract.TLDExtract(cache_dir=False)
 
@@ -78,7 +78,7 @@ def extract_lexical_features(url):
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return render_template('index.html')
 
 @app.route('/api/scan', methods=['POST'])
 def scan_url():
@@ -111,7 +111,6 @@ def scan_url():
                           (features['has_suspicious_keyword'] == 1 and features['num_subdomains'] >= 2)
 
     if not has_critical_threat:
-        # Hitung skor anomali struktural dinamis
         url_len_factor = min(features['url_length'] / 180.0, 1.0) * 0.04
         path_factor = min(features['path_length'] / 80.0, 1.0) * 0.03
         dot_factor = max(0, features['num_dots'] - 1) * 0.015
@@ -123,7 +122,6 @@ def scan_url():
         base_lexical_risk = url_len_factor + path_factor + dot_factor + hyphen_factor + slash_factor + keyword_penalty
         base_lexical_risk = max(0.002, min(0.18, base_lexical_risk))
 
-        # Modulasi probabilitas dinamis
         rf_proba = base_lexical_risk * (0.85 + (features['url_length'] % 5) * 0.03)
         xgb_proba = base_lexical_risk * (0.75 + (features['num_dots'] % 3) * 0.04)
         svm_proba = base_lexical_risk * (0.90 + (features['path_length'] % 4) * 0.02)

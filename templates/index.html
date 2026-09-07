@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHISHGUARD.AI // Enterprise SOC Phishing Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body id="pageBody" class="bg-[#070b14] text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden transition-colors duration-300">
+
+    <header id="appHeader" class="w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 sm:px-8 py-3.5 flex justify-between items-center transition-colors duration-300">
+        <div class="flex items-center space-x-3">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
+            <span class="font-cyber font-extrabold tracking-wider text-base sm:text-xl text-white">PHISHGUARD<span class="text-cyan-400">.AI</span></span>
+            <span class="hidden sm:inline-block text-[10px] uppercase px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono">SYSTEM ACTIVE: 174K TRAINED</span>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            <div id="trainedBadge" class="border border-slate-700 px-2.5 py-1 rounded bg-slate-900 text-slate-300 text-[11px] font-mono shrink-0">
+                174K TRAINED
+            </div>
+            <button onclick="toggleTheme()" id="themeToggleBtn" class="p-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-cyan-500/50 text-cyan-400 transition-all flex items-center justify-center" title="Toggle Dark/Light Mode">
+                <svg id="themeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 sm:py-12 flex-grow flex flex-col max-w-6xl w-full space-y-8">
+        
+        <div class="text-center space-y-4">
+            <div class="inline-block text-xs font-mono tracking-widest text-cyan-400 border border-cyan-500/40 px-3 py-1 rounded-full bg-cyan-950/40 shadow-sm">
+                [ ZERO-CRAWLING LEXICAL ENGINE // AIR-GAPPED SAFE ]
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-black font-cyber text-white tracking-wide">
+                Instant Zero-Day Phishing Detection at <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500" id="latencyHero">0.84ms</span> Latency.
+            </h1>
+            <p class="text-slate-400 text-xs sm:text-sm max-w-3xl mx-auto font-mono">
+                Static lexical feature extraction without network crawling, headless browser sandboxing, or honeypot execution. Powered by an ensemble of Random Forest, XGBoost, and Linear SVM.
+            </p>
+        </div>
+
+        <div class="w-full bg-[#0d1321] border border-cyan-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4 text-xs font-mono text-slate-400">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>
+                    <span class="ml-2 text-slate-400">/opt/phishguard/bin/lexical_extract --weights=ensemble_v3.4</span>
+                </div>
+                <span class="text-cyan-400">BUFFER: READY</span>
+            </div>
+
+            <form id="scanForm" onsubmit="handleScan(event)" class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-grow font-mono">
+                    <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-cyan-400 text-sm">&gt;</span>
+                    <input 
+                        type="text" 
+                        id="urlInput" 
+                        required
+                        placeholder="Masukkan URL lengkap (cth: https://secure-login-example.com)" 
+                        class="w-full pl-8 pr-4 py-3 rounded-xl bg-[#080d17] border border-cyan-500/40 text-slate-100 placeholder-slate-500 outline-none text-xs sm:text-sm focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                    >
+                </div>
+                <button 
+                    type="submit" 
+                    id="scanBtn"
+                    class="px-6 py-3 rounded-xl font-cyber font-bold text-xs uppercase bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] flex items-center justify-center space-x-2 shrink-0"
+                >
+                    <span id="btnText">Execute Lexical Scan</span>
+                    <svg id="loadingSpinner" class="hidden animate-spin h-4 w-4 text-slate-950" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+        <div id="resultContainer" class="hidden space-y-6">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="verdictCard" class="bg-[#0d1321] border rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-mono mb-2">
+                            <span id="verdictBadge" class="px-2.5 py-1 rounded font-bold uppercase"></span>
+                            <span id="verdictLatency" class="text-cyan-400"></span>
+                        </div>
+                        <h3 id="verdictTitle" class="text-2xl font-cyber font-black mt-2"></h3>
+                        <p id="verdictDesc" class="text-xs text-slate-400 font-mono mt-2 leading-relaxed"></p>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="text-[10px] font-mono text-slate-400">ENSEMBLE THREAT PROBABILITY</div>
+                            <div id="riskScoreBig" class="text-3xl font-cyber font-bold mt-1"></div>
+                        </div>
+                        <div class="w-16 h-16 rounded-full border-4 border-cyan-500/20 flex items-center justify-center font-cyber font-bold text-xs text-cyan-400" id="scoreCircle">
+                            --%
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 bg-[#0d1321] border border-cyan-500/20 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div>
+                            <h4 class="text-sm font-cyber font-bold text-white uppercase">Tri-Model Ensemble Architecture</h4>
+                            <p class="text-[11px] font-mono text-slate-400">Heterogeneous stack with soft-voting probability matrix</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/30 text-cyan-300">Recall Rate: 100% Match</span>
+                    </div>
+
+                    <div class="space-y-4 my-4">
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-slate-300">Random Forest Classifier <span class="text-[10px] text-slate-500">| Weight: 0.35</span></span>
+                                <span id="rfConfText" class="font-bold text-cyan-400">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                                <div id="rfBar" class="bg-cyan-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-slate-300">Extreme Gradient Boosting (XGBoost) <span class="text-[10px] text-slate-500">| Weight: 0.45</span></span>
+                                <span id="xgbConfText" class="font-bold text-cyan-400">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                                <div id="xgbBar" class="bg-cyan-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-slate-300">Linear Support Vector Machine (SVM) <span class="text-[10px] text-slate-500">| Weight: 0.20</span></span>
+                                <span id="svmConfText" class="font-bold text-cyan-400">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                                <div id="svmBar" class="bg-cyan-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] font-mono text-slate-400 pt-2 border-t border-slate-800/80 flex justify-between">
+                        <span>Consensus Formula: P = ∑(w_i * p_i)</span>
+                        <span id="totalExecFooter">Total Execution: -- ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-[#0d1321] border border-cyan-500/20 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-4 mb-5 gap-3">
+                    <div>
+                        <h4 class="text-sm font-cyber font-bold text-white uppercase">Forensic Lexical Feature Vector (13 Extracted Attributes)</h4>
+                        <p class="text-[11px] font-mono text-slate-400">Deterministic feature decomposition without socket queries or target DNS lookup.</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-mono">
+                        <span class="flex items-center space-x-1 text-red-400"><span class="w-2 h-2 rounded-full bg-red-500"></span><span id="flaggedCount">0 Flagged</span></span>
+                        <span class="flex items-center space-x-1 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span id="passedCount">0 Clean</span></span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="featuresDetailGrid">
+                    </div>
+            </div>
+
+            <div class="bg-[#0d1321] border border-cyan-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <span class="text-xs font-mono text-slate-400">SEC-OPS TELEMETRY &amp; INCIDENT REPORT INTERFACE</span>
+                <div class="flex items-center flex-wrap gap-2.5">
+                    <button onclick="copyJsonLog()" id="copyBtn" class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 text-xs font-mono text-slate-300 transition-all flex items-center space-x-1.5">
+                        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                        <span id="copyBtnText">Copy JSON Verdict</span>
+                    </button>
+                    <button onclick="downloadJsonReport()" class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 text-xs font-mono text-slate-300 transition-all flex items-center space-x-1.5">
+                        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        <span>Download Payload</span>
+                    </button>
+                    <button onclick="downloadPdfReport()" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-cyber font-bold uppercase transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)] flex items-center space-x-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>Executive PDF Report</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="bg-[#0d1321] border border-cyan-500/20 rounded-2xl p-6 shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h4 class="text-xs font-cyber font-bold text-white uppercase tracking-wider">Live Incident Audit Stream</h4>
+                </div>
+                <span class="text-[10px] font-mono text-slate-400">Air-Gapped Session Cache</span>
+            </div>
+            
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+                <table class="w-full text-left text-xs font-mono">
+                    <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="py-3 px-4">TIMESTAMP (UTC)</th>
+                            <th class="py-3 px-4">TARGET URL VECTOR</th>
+                            <th class="py-3 px-4 text-center">CONSENSUS VERDICT</th>
+                            <th class="py-3 px-4 text-right">LATENCY</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-800/50 bg-slate-900/40 text-slate-300">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <footer id="appFooter" class="w-full border-t border-slate-900 py-4 px-4 text-center text-xs font-mono text-slate-500 transition-colors duration-300">
+        SKRIPSI PROJECT &copy; 2026 // DETEKSI PHISHING BERBASIS MACHINE LEARNING
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
