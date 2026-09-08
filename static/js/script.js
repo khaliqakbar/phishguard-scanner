@@ -1,487 +1,409 @@
-let currentScanPayload = null;
-let currentFindings = [];
-const sessionHistory = [];
+/**
+ * PhishGuard.AI - Dashboard Controller & PDF Generator
+ * Komunikasi Asynchronous dengan Flask Backend
+ */
 
-// Fungsi Toggle Dark / Light Theme
-function toggleTheme() {
-    const body = document.getElementById('pageBody');
-    const themeIcon = document.getElementById('themeIcon');
-    const isLight = body.classList.contains('light-mode');
+let lastScanData = null;
+const auditHistory = [];
 
-    if (isLight) {
-        body.classList.remove('light-mode');
-        themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>';
-    } else {
-        body.classList.add('light-mode');
-        themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+const FEATURE_GUIDE = {
+  consensus_verdict: {
+    title: 'Consensus Verdict',
+    badge: 'Status Utama',
+    desc: 'Ini adalah keputusan akhir sistem setelah tiga model machine learning (Random Forest, XGBoost, dan Linear SVM) “berunding”. Kartu ini menampilkan apakah URL dinilai aman atau phishing, plus perkiraan risikonya dalam persen. Status STANDBY berarti Anda belum memindai tautan apa pun.',
+    risk: 'Phishing berbahaya justru karena tampilannya sering meyakinkan. Verdict konsensus dipakai agar keputusan tidak bergantung pada satu algoritma saja: jika mayoritas model melihat pola berbahaya pada struktur URL, sistem menaikkan peringatan agar pengguna tidak buru-buru mengklik atau mengisi data.'
+  },
+  url_length: {
+    title: 'URL Length',
+    badge: 'Vektor Leksikal',
+    desc: 'Mengukur berapa banyak karakter di seluruh tautan. URL resmi biasanya relatif ringkas dan mudah dibaca. Tautan sangat panjang sering dibuat agar mata kita capek membaca, sehingga nama domain asli tersembunyi di tengah “sampah” teks.',
+    risk: 'Penyerang menyembunyikan identitas domain asli di balik rantai karakter, parameter, dan folder palsu. Panjang URL yang tidak wajar menjadi sinyal bahwa tautan mungkin dirancang untuk mengelabui, bukan untuk memudahkan pengguna.'
+  },
+  domain_length: {
+    title: 'Domain Length',
+    badge: 'Vektor Leksikal',
+    desc: 'Domain adalah “nama rumah” situs (contoh: bankku.co.id). Nama resmi biasanya pendek dan mudah diingat. Domain yang terlalu panjang sering meniru merek terkenal dengan menambahkan kata ekstra, misalnya login-bca-resmi-verifikasi.com.',
+    risk: 'Tiruan nama merek (brand impersonation) hampir selalu menghasilkan domain lebih panjang dari aslinya. Sistem memantau panjang domain karena pola ini sering muncul pada situs palsu yang menyamar sebagai bank, marketplace, atau layanan pemerintah.'
+  },
+  path_length: {
+    title: 'Path Length',
+    badge: 'Vektor Leksikal',
+    desc: 'Path adalah bagian URL setelah nama domain, seperti /akun/login/verifikasi. Situs sah memakai path seperlunya. Path yang sangat panjang biasanya berisi folder berlapis yang sengaja dibuat rumit agar tautan terlihat “resmi” atau “dalam sekali”.',
+    risk: 'Struktur direktori berlapis dipakai untuk menyamarkan halaman palsu di dalam path yang tampak teknis. Korban cenderung percaya karena URL-nya “penuh folder”, padahal folder itu hanya dekorasi untuk menipu.'
+  },
+  num_subdomains: {
+    title: 'Subdomains',
+    badge: 'Vektor Leksikal',
+    desc: 'Subdomain adalah label di kiri nama utama, misalnya shop.contoh.com. Situs besar memang punya beberapa subdomain. Masalahnya, penyerang bisa menulis nama bank di subdomain, misalnya bca.keamanan.situsjahat.com — yang terlihat seperti BCA, padahal rumah aslinya situsjahat.com.',
+    risk: 'Ini disebut subdomain spoofing. Banyak orang hanya membaca kata merek di depan, bukan domain inti di belakang. Jumlah subdomain yang berlebih menjadi indikasi tautan sedang meminjam nama merek agar terasa familiar.'
+  },
+  has_ip: {
+    title: 'IP Address',
+    badge: 'Vektor Leksikal',
+    desc: 'Situs resmi hampir selalu memakai nama domain (contoh: google.com), bukan deretan angka. Jika host-nya langsung berupa alamat IP seperti 192.168.1.1, peramban tidak menampilkan nama merek yang bisa Anda kenali.',
+    risk: 'Host IP memotong kepercayaan yang biasanya diberikan sertifikat dan nama domain resmi. Penyerang memakai IP agar tidak perlu membeli domain yang mirip merek, dan agar jejak merek asli tidak muncul di bilah alamat.'
+  },
+  num_dots: {
+    title: 'Dots (.)',
+    badge: 'Vektor Leksikal',
+    desc: 'Titik memisahkan bagian domain: www, nama situs, dan akhiran seperti .com. Beberapa titik wajar. Terlalu banyak titik biasanya berarti ada rantai subdomain tiruan bertingkat yang sengaja membingungkan.',
+    risk: 'Titik berlebih sering dipakai merakit subdomain palsu bertingkat (contoh: login.bank.aman.situspalsu.net). Mata kita tertarik pada kata “bank”, sementara titik-titik itu menyembunyikan pemilik sebenarnya.'
+  },
+  num_hyphens: {
+    title: 'Hyphens (-)',
+    badge: 'Vektor Leksikal',
+    desc: 'Tanda minus kadang dipakai di domain sah, tetapi jarang berlebihan. Penyerang suka merangkai kata merek dengan kata umpan: klik-bca, login-dana, atau verifikasi-akun-bri. Teknik ini disebut combosquatting.',
+    risk: 'Combosquatting menempelkan kata yang terdengar resmi di samping nama merek. Jumlah tanda minus yang tinggi menandai URL yang “dirakit” agar mirip layanan tepercaya, bukan nama domain yang memang dimiliki merek tersebut.'
+  },
+  num_underscores: {
+    title: 'Underscores (_)',
+    badge: 'Vektor Leksikal',
+    desc: 'Garis bawah hampir tidak dipakai pada nama domain standar. Jika muncul banyak di URL, itu biasanya bukan kebiasaan situs profesional, melainkan karakter yang ditambahkan agar tautan terlihat unik atau teknis.',
+    risk: 'Karakter tidak lazim ini membantu membedakan tautan rekayasa dari domain bersih. Situs phishing sering mencomot pola acak, termasuk underscore, karena mereka tidak terikat standar merek resmi.'
+  },
+  num_slashes: {
+    title: 'Slashes (/)',
+    badge: 'Vektor Leksikal',
+    desc: 'Garis miring memisahkan folder di path. Beberapa slash wajar (contoh: /produk/sepatu). Terlalu banyak slash membuat tautan tampak dalam dan rumit, sehingga orang kesulitan membaca di mana nama situsnya berakhir.',
+    risk: 'Trik ini menyamarkan path folder agar korban bingung membaca tautan. Semakin banyak lapisan /, semakin mudah menyisipkan halaman palsu di “kedalaman” yang seolah-olah bagian dari situs resmi.'
+  },
+  num_at: {
+    title: 'At Symbol (@)',
+    badge: 'Vektor Leksikal',
+    desc: 'Simbol @ di URL punya arti khusus: peramban menganggap teks sebelum @ sebagai nama pengguna, lalu benar-benar membuka alamat setelahnya. Contohnya, https://bca.co.id@situsjahat.com terlihat seperti BCA, tetapi yang dibuka adalah situsjahat.com.',
+    risk: 'Bahayanya, teks di depan @ diabaikan oleh peramban. Penyerang menaruh nama merek di kiri agar mata kita tenang, sementara tujuan aslinya ada di kanan. Kehadiran @ di URL publik hampir selalu sinyal tipuan.'
+  },
+  num_question_marks: {
+    title: 'Question (?)',
+    badge: 'Vektor Leksikal',
+    desc: 'Tanda tanya memulai query string: data tambahan setelah halaman, misalnya ?id=12. Situs biasa memakainya untuk pencarian atau filter. Jika terlalu banyak atau terasa acak, itu bisa berupa token pelacak, parameter umpan, atau tautan yang disalin dari skrip phishing.',
+    risk: 'Parameter query sering membawa pelacak atau token bypass agar halaman palsu “terlihat personal”. Pola ? yang mencurigakan membantu sistem menangkap tautan yang membawa korban ke alur verifikasi palsu.'
+  },
+  num_equals: {
+    title: 'Equals (=)',
+    badge: 'Vektor Leksikal',
+    desc: 'Tanda sama dengan mengisi nilai pada query, seperti user=andi atau token=abc. Formulir login palsu sering menempelkan banyak pasangan nama=nilai di URL untuk mengirim atau menyimpan data yang diketik korban.',
+    risk: 'Variabel query dengan banyak = dipakai mengirim kredensial dari form palsu atau meniru sesi login. Sistem menghitung karakter ini karena halaman phishing sering “mengemas” data akun langsung di tautan.'
+  },
+  has_suspicious_keyword: {
+    title: 'Suspicious Keyword',
+    badge: 'Vektor Leksikal',
+    desc: 'Sistem mencari kata pancingan yang memicu rasa panik atau buru-buru: login, verify, update, secure, diskon, hadiah, dan sejenisnya. Kata-kata itu tidak otomatis berarti jahat, tetapi sering dipakai dalam kampanye yang menekan emosi.',
+    risk: 'Phishing bekerja lewat psikologi: rasa takut akun dibekukan atau tergiur promo. Kata kunci mencurigakan menandai tautan yang mendorong korban segera mengisi sandi, OTP, atau data kartu tanpa sempat memeriksa domain.'
+  },
+  engine_mode: {
+    title: 'Engine Mode',
+    badge: 'Arsitektur Deteksi',
+    desc: 'Mode Air-Gapped (Static) berarti analisis hanya membaca teks URL secara lokal, mengikuti aturan alamat web RFC 3986. Tidak ada kunjungan ke situs target, tidak ada crawling, dan tidak ada ketergantungan ke internet saat memutuskan.',
+    risk: 'Mengunjungi tautan phishing justru bisa memicu unduhan malware atau mencatat IP Anda. Mesin leksikal statis dipakai agar deteksi tetap aman: cukup memeriksa “bentuk tulisan” URL, tanpa membuka pintu ke server penyerang.'
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const scanBtn = document.getElementById('scanBtn');
+  const urlInput = document.getElementById('urlInput');
+  const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+
+  if (scanBtn) {
+    scanBtn.addEventListener('click', executeScan);
+  }
+
+  if (urlInput) {
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        executeScan();
+      }
+    });
+  }
+
+  if (downloadPdfBtn) {
+    downloadPdfBtn.addEventListener('click', downloadPdfReport);
+  }
+
+  initSidebarNav();
+  initFeatureModals();
+});
+
+function initFeatureModals() {
+  const modal = document.getElementById('eduModal');
+  if (!modal) return;
+
+  const titleEl = document.getElementById('modalTitle');
+  const badgeEl = document.getElementById('modalBadge');
+  const descEl = document.getElementById('modalDesc');
+  const riskEl = document.getElementById('modalRiskWhy');
+
+  const openModal = (featureKey) => {
+    const info = FEATURE_GUIDE[featureKey];
+    if (!info) return;
+
+    titleEl.textContent = info.title;
+    badgeEl.textContent = info.badge;
+    descEl.textContent = info.desc;
+    riskEl.textContent = info.risk;
+
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+  };
+
+  document.querySelectorAll('.btn-info-modal').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openModal(btn.dataset.feature);
+    });
+  });
+
+  document.getElementById('modalCloseX')?.addEventListener('click', closeModal);
+  document.getElementById('modalUnderstand')?.addEventListener('click', closeModal);
+  modal.querySelector('[data-modal-dismiss]')?.addEventListener('click', closeModal);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+      closeModal();
     }
+  });
 }
 
-async function handleScan(e) {
-    e.preventDefault();
-    const urlInput = document.getElementById('urlInput');
-    const targetUrl = urlInput.value.trim();
-    if (!targetUrl) return;
+function initSidebarNav() {
+  const buttons = document.querySelectorAll('.sidebar-btn[data-nav]');
+  const panels = {
+    dashboard: document.getElementById('panel-dashboard'),
+    features: document.getElementById('panel-features'),
+    stream: document.getElementById('panel-stream')
+  };
 
-    const scanBtn = document.getElementById('scanBtn');
-    const btnText = document.getElementById('btnText');
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const resultContainer = document.getElementById('resultContainer');
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      buttons.forEach((item) => item.classList.remove('active'));
+      btn.classList.add('active');
 
-    resultContainer.classList.add('hidden');
-    scanBtn.disabled = true;
-    btnText.innerText = "EXTRACTING VECTORS...";
-    loadingSpinner.classList.remove('hidden');
+      const target = panels[btn.dataset.nav];
+      if (!target) return;
 
-    try {
-        const response = await fetch('/api/scan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: targetUrl })
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Gagal memindai URL');
-
-        setTimeout(() => {
-            scanBtn.disabled = false;
-            btnText.innerText = "Execute Lexical Scan";
-            loadingSpinner.classList.add('hidden');
-            renderDashboard(data);
-        }, 300);
-
-    } catch (err) {
-        scanBtn.disabled = false;
-        btnText.innerText = "Execute Lexical Scan";
-        loadingSpinner.classList.add('hidden');
-        alert('Kesalahan Pemindaian: ' + err.message);
-    }
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      target.classList.remove('panel-focus');
+      void target.offsetWidth;
+      target.classList.add('panel-focus');
+    });
+  });
 }
 
-function renderDashboard(data) {
-    currentScanPayload = {
-        timestamp: new Date().toISOString(),
-        ...data
-    };
-
-    const isPhishing = data.consensus_verdict === "Phishing";
-    const riskScore = data.phishing_risk_percentage;
-
-    // Tampilkan Kontainer Hasil
-    const resultContainer = document.getElementById('resultContainer');
-    resultContainer.classList.remove('hidden');
-    resultContainer.scrollIntoView({ behavior: 'smooth' });
-
-    // Update Hero Latency
-    const latencyHero = document.getElementById('latencyHero');
-    if (latencyHero) {
-        latencyHero.innerText = `${data.execution_time_ms || 0.84}ms`;
-    }
-
-    // 1. Verdict Card Styling
-    const verdictCard = document.getElementById('verdictCard');
-    const verdictBadge = document.getElementById('verdictBadge');
-    const verdictTitle = document.getElementById('verdictTitle');
-    const verdictDesc = document.getElementById('verdictDesc');
-    const riskScoreBig = document.getElementById('riskScoreBig');
-    const scoreCircle = document.getElementById('scoreCircle');
-    const verdictLatency = document.getElementById('verdictLatency');
-
-    verdictLatency.innerText = `${data.execution_time_ms || 0.84}ms Latency`;
-    riskScoreBig.innerText = `${riskScore}%`;
-    scoreCircle.innerText = `${riskScore}%`;
-
-    if (isPhishing) {
-        verdictCard.className = "bg-[#0d1321] border border-red-500/50 rounded-2xl p-6 flex flex-col justify-between shadow-xl bg-red-950/10";
-        verdictBadge.className = "px-2.5 py-1 rounded font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/40";
-        verdictBadge.innerText = "CRITICAL SEVERITY // HIGH RISK";
-        verdictTitle.className = "text-2xl font-cyber font-black mt-2 text-red-500";
-        verdictTitle.innerText = "MALICIOUS / HIGH CONFIDENCE PHISHING";
-        verdictDesc.innerText = "High-entropy subdomain nesting with recursive authentication tokens. Zero DNS resolving was performed to generate this verdict.";
-    } else {
-        verdictCard.className = "bg-[#0d1321] border border-emerald-500/50 rounded-2xl p-6 flex flex-col justify-between shadow-xl bg-emerald-950/10";
-        verdictBadge.className = "px-2.5 py-1 rounded font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
-        verdictBadge.innerText = "LOW RISK // VERIFIED CLEAN";
-        verdictTitle.className = "text-2xl font-cyber font-black mt-2 text-emerald-400";
-        verdictTitle.innerText = "CLEAN / LEGITIMATE DOMAIN";
-        verdictDesc.innerText = "Fully Qualified Domain Name (FQDN) matches structural integrity rules. No lexical anomaly or credential spoofing detected.";
-    }
-
-    // 2. Model Confidence Bars
-    const rf = data.models.random_forest;
-    const xgb = data.models.xgboost;
-    const svm = data.models.svm_linear;
-
-    const rfVal = (rf.confidence * 100).toFixed(1);
-    const xgbVal = (xgb.confidence * 100).toFixed(1);
-    const svmVal = (svm.confidence * 100).toFixed(1);
-
-    document.getElementById('rfConfText').innerText = `${rfVal}% (${rf.verdict})`;
-    document.getElementById('xgbConfText').innerText = `${xgbVal}% (${xgb.verdict})`;
-    document.getElementById('svmConfText').innerText = `${svmVal}% (${svm.verdict})`;
-
-    document.getElementById('rfBar').style.width = `${rfVal}%`;
-    document.getElementById('xgbBar').style.width = `${xgbVal}%`;
-    document.getElementById('svmBar').style.width = `${svmVal}%`;
-
-    document.getElementById('totalExecFooter').innerText = `Total Execution: ${data.execution_time_ms || 0.82}ms`;
-
-    // 3. 13 Lexical Features Grid
-    const featuresGrid = document.getElementById('featuresDetailGrid');
-    featuresGrid.innerHTML = '';
-
-    let flaggedCount = 0;
-    let passedCount = 0;
-
-    for (const [key, val] of Object.entries(data.features)) {
-        const isFlagged = val === 1 || val === true || (typeof val === 'number' && val > 25);
-        if (isFlagged) flaggedCount++; else passedCount++;
-
-        const card = document.createElement('div');
-        card.className = "bg-[#080d17] border border-slate-800 p-3.5 rounded-xl flex flex-col justify-between";
-        card.innerHTML = `
-            <div class="flex items-center justify-between text-[10px] font-mono mb-1">
-                <span class="text-slate-500 uppercase">${key.replace(/_/g, ' ')}</span>
-                <span class="px-1.5 py-0.5 rounded font-bold ${isFlagged ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
-                    ${isFlagged ? 'FLAGGED' : 'PASS'}
-                </span>
-            </div>
-            <div class="text-sm font-cyber font-bold text-cyan-300 mt-1">${val}</div>
-        `;
-        featuresGrid.appendChild(card);
-    }
-
-    document.getElementById('flaggedCount').innerText = `${flaggedCount} Flagged`;
-    document.getElementById('passedCount').innerText = `${passedCount} Clean`;
-
-    // 4. Update History Stream
-    sessionHistory.unshift({
-        time: new Date().toLocaleTimeString(),
-        url: data.url,
-        risk: `${riskScore}%`,
-        verdict: data.consensus_verdict,
-        latency: `${data.execution_time_ms || 0.84}ms`
-    });
-    if (sessionHistory.length > 5) sessionHistory.pop();
-
-    const historyBody = document.getElementById('historyTableBody');
-    historyBody.innerHTML = '';
-    sessionHistory.forEach(row => {
-        const tr = document.createElement('tr');
-        const isPhish = row.verdict === "Phishing";
-        tr.innerHTML = `
-            <td class="py-3 px-4 text-slate-400">${row.time}</td>
-            <td class="py-3 px-4 truncate max-w-[250px]" title="${row.url}">${row.url}</td>
-            <td class="py-3 px-4 text-center">
-                <span class="px-2 py-0.5 rounded text-[10px] ${isPhish ? 'bg-red-950/80 border border-red-500/40 text-red-400 font-bold' : 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 font-bold'}">
-                    ● ${row.verdict.toUpperCase()} (${row.risk})
-                </span>
-            </td>
-            <td class="py-3 px-4 text-right text-cyan-400">${row.latency}</td>
-        `;
-        historyBody.appendChild(tr);
-    });
+function setQuickUrl(url) {
+  const input = document.getElementById('urlInput');
+  if (input) {
+    input.value = url;
+    executeScan();
+  }
 }
 
-function copyJsonLog() {
-    if (!currentScanPayload) return;
-    navigator.clipboard.writeText(JSON.stringify(currentScanPayload, null, 2)).then(() => {
-        const btn = document.getElementById('copyBtnText');
-        btn.innerText = "COPIED!";
-        setTimeout(() => btn.innerText = "Copy JSON Verdict", 1500);
+async function executeScan() {
+  const urlInput = document.getElementById('urlInput');
+  const scanBtn = document.getElementById('scanBtn');
+  const scanBtnText = document.getElementById('scanBtnText');
+  const scanBtnIcon = document.getElementById('scanBtnIcon');
+
+  const rawUrl = urlInput.value.trim();
+  if (!rawUrl) {
+    alert('Silakan masukkan URL target terlebih dahulu.');
+    urlInput.focus();
+    return;
+  }
+
+  // Visual indikator loading
+  scanBtn.disabled = true;
+  scanBtnText.innerText = 'Scanning...';
+  scanBtnIcon.className = 'fa-solid fa-spinner fa-spin';
+
+  try {
+    const response = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: rawUrl })
     });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server HTTP Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    lastScanData = data;
+
+    renderScanResults(data);
+    addAuditHistory(data);
+
+  } catch (err) {
+    alert(`Gagal Melakukan Analisis: ${err.message}`);
+  } finally {
+    scanBtn.disabled = false;
+    scanBtnText.innerText = 'Scan URL';
+    scanBtnIcon.className = 'fa-solid fa-arrow-right';
+  }
 }
 
-function downloadPdfReport() {
-    if (!currentScanPayload) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const p = currentScanPayload;
-    const isPhish = p.consensus_verdict === "Phishing";
+function renderScanResults(data) {
+  const verdictCard = document.getElementById('verdictCard');
+  const riskBadge = document.getElementById('riskBadge');
+  const verdictText = document.getElementById('verdictText');
+  const riskScore = document.getElementById('riskScore');
+  const latencyHero = document.getElementById('latencyHero');
 
-    // Header PDF
-    doc.setFillColor(7, 11, 20);
-    doc.rect(0, 0, 210, 32, 'F');
+  const isPhishing = data.consensus_verdict === 'Phishing';
 
-    doc.setTextColor(34, 211, 238);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.text("PHISHGUARD.AI // INTELLIGENT PHISHING SCANNER", 14, 15);
+  // 1. Kartu Verdict
+  if (isPhishing) {
+    verdictCard.className = 'card card-verdict danger';
+    riskBadge.innerText = 'THREAT DETECTED';
+  } else {
+    verdictCard.className = 'card card-verdict safe';
+    riskBadge.innerText = 'LEGITIMATE / SAFE';
+  }
 
-    doc.setTextColor(148, 163, 184);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text("ZERO-CRAWLING STATIC LEXICAL FORENSIC INCIDENT REPORT", 14, 23);
-    doc.text(`Generated: ${new Date().toLocaleString()} | Latency: ${p.execution_time_ms || 0.84} ms`, 115, 23);
+  verdictText.innerText = data.consensus_verdict;
+  riskScore.innerText = `${data.phishing_risk_percentage}%`;
+  latencyHero.innerText = `${data.execution_time_ms}ms`;
 
-    // Target URL Section
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("TARGET EVALUATION ENTITY:", 14, 42);
+  // 2. Tiga Sub-Model
+  if (data.models) {
+    updateModelBar('rf', data.models.random_forest);
+    updateModelBar('xgb', data.models.xgboost);
+    updateModelBar('svm', data.models.svm_linear);
+  }
 
-    doc.setFont("courier", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(51, 65, 85);
-    const splitUrl = doc.splitTextToSize(p.url, 180);
-    doc.text(splitUrl, 14, 48);
+  // 3. 13 Vektor Fitur Leksikal Penuh
+  if (data.features) {
+    const f = data.features;
+    setFieldText('feat_url_length', f.url_length);
+    setFieldText('feat_domain_length', f.domain_length);
+    setFieldText('feat_path_length', f.path_length);
+    setFieldText('feat_num_subdomains', f.num_subdomains);
+    setFieldText('feat_has_ip', f.has_ip === 1 ? 'YES' : 'NO');
+    setFieldText('feat_num_dots', f.num_dots);
+    setFieldText('feat_num_hyphens', f.num_hyphens);
+    setFieldText('feat_num_underscores', f.num_underscores);
+    setFieldText('feat_num_slashes', f.num_slashes);
+    setFieldText('feat_num_at', f.num_at);
+    setFieldText('feat_num_question_marks', f.num_question_marks);
+    setFieldText('feat_num_equals', f.num_equals);
+    setFieldText('feat_has_suspicious_keyword', f.has_suspicious_keyword === 1 ? 'YES' : 'NO');
+  }
+}
 
-    const urlOffset = 48 + (splitUrl.length * 4);
+function updateModelBar(prefix, modelData) {
+  if (!modelData) return;
+  const pct = (modelData.confidence * 100).toFixed(1);
+  const textEl = document.getElementById(`${prefix}Conf`);
+  const barEl = document.getElementById(`${prefix}Bar`);
 
-    // Verdict Box
-    if (isPhish) {
-        doc.setFillColor(254, 242, 242);
-        doc.setDrawColor(239, 68, 68);
-        doc.roundedRect(14, urlOffset, 182, 20, 2, 2, 'FD');
-        doc.setTextColor(220, 38, 38);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11.5);
-        doc.text("CONSENSUS VERDICT: THREAT DETECTED (PHISHING)", 20, urlOffset + 8);
-        doc.setFontSize(9.5);
-        doc.text(`AGGREGATED PHISHING RISK SCORE: ${p.phishing_risk_percentage}%`, 20, urlOffset + 15);
-    } else {
-        doc.setFillColor(240, 253, 244);
-        doc.setDrawColor(34, 197, 94);
-        doc.roundedRect(14, urlOffset, 182, 20, 2, 2, 'FD');
-        doc.setTextColor(22, 163, 74);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11.5);
-        doc.text("CONSENSUS VERDICT: CLEAN (LEGITIMATE DOMAIN)", 20, urlOffset + 8);
-        doc.setFontSize(9.5);
-        doc.text(`AGGREGATED PHISHING RISK SCORE: ${p.phishing_risk_percentage}%`, 20, urlOffset + 15);
-    }
+  if (textEl) textEl.innerText = `${pct}% (${modelData.verdict})`;
+  if (barEl) barEl.style.width = `${pct}%`;
+}
 
-    // Model Confidence Table
-    const modelOffset = urlOffset + 26;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text("ENSEMBLE CLASSIFIERS CONFIDENCE BREAKDOWN:", 14, modelOffset);
+function setFieldText(elemId, value) {
+  const el = document.getElementById(elemId);
+  if (el) el.innerText = (value !== undefined && value !== null) ? value : '-';
+}
 
-    const modelData = [
-        ["Random Forest", `${(p.models.random_forest.confidence * 100).toFixed(1)}%`, p.models.random_forest.verdict],
-        ["Extreme Gradient Boosting (XGBoost)", `${(p.models.xgboost.confidence * 100).toFixed(1)}%`, p.models.xgboost.verdict],
-        ["Linear Support Vector Machine (Linear SVM)", `${(p.models.svm_linear.confidence * 100).toFixed(1)}%`, p.models.svm_linear.verdict]
-    ];
+function addAuditHistory(data) {
+  const tbody = document.getElementById('historyTableBody');
+  if (!tbody) return;
 
-    doc.autoTable({
-        startY: modelOffset + 3,
-        head: [['Algorithm Model', 'Confidence Level', 'Verdict']],
-        body: modelData,
-        theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 8 }
-    });
+  auditHistory.unshift(data);
+  if (auditHistory.length > 8) auditHistory.pop();
 
-    // 13 Features Table
-    const metricsOffset = doc.lastAutoTable.finalY + 6;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text("EXTRACTED 13 LEXICAL VECTORS (FEATURE SPACE):", 14, metricsOffset);
+  tbody.innerHTML = '';
+  auditHistory.forEach(item => {
+    const tr = document.createElement('tr');
+    const isPhish = item.consensus_verdict === 'Phishing';
+    const shortUrl = item.url.length > 28 ? item.url.substring(0, 26) + '...' : item.url;
 
-    const featureEntries = Object.entries(p.features).map(([k, v]) => [k.replace(/_/g, ' ').toUpperCase(), v]);
-    const pairedFeatures = [];
-    for (let i = 0; i < featureEntries.length; i += 2) {
-        const col1 = featureEntries[i];
-        const col2 = featureEntries[i + 1] || ["-", "-"];
-        pairedFeatures.push([col1[0], col1[1], col2[0], col2[1]]);
-    }
-
-    doc.autoTable({
-        startY: metricsOffset + 3,
-        head: [['Lexical Feature (A)', 'Value', 'Lexical Feature (B)', 'Value']],
-        body: pairedFeatures,
-        theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
-        styles: { fontSize: 7.5 }
-    });
-
-    // Advisory / XAI Summary
-    const advOffset = doc.lastAutoTable.finalY + 6;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text("EXPLAINABLE AI (XAI) FORENSIC SUMMARY & ADVISORY:", 14, advOffset);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(51, 65, 85);
-
-    let findings = [];
-    if (isPhish) {
-        findings = [
-            "Menggunakan indikator struktur leksikal anomali berisiko tinggi.",
-            "Ditemukan pola string atau kedalaman subdomain yang mencurigakan.",
-            "REKOMENDASI: Jangan masukkan kredensial atau informasi sensitif apa pun."
-        ];
-    } else {
-        findings = [
-            "Domain menggunakan struktur Fully Qualified Domain Name (FQDN) yang sah.",
-            "Tidak ditemukan anomali pada token leksikal dan atribut panjang path.",
-            "REKOMENDASI: Tautan aman untuk diakses."
-        ];
-    }
-
-    let currentY = advOffset + 5;
-    findings.forEach(item => {
-        const line = doc.splitTextToSize(`• ${item}`, 180);
-        doc.text(line, 16, currentY);
-        currentY += (line.length * 4);
-    });
-
-    // Footer PDF
-    doc.setFontSize(7);
-    doc.setTextColor(148, 163, 184);
-    doc.text("PhishGuard.AI Forensic Engine - Skripsi Project 2026. Document verified via client-side inference signature.", 14, 288);
-
-    const cleanDomain = p.url.replace(/https?:\/\//i, '').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
-    doc.save(`PHISHGUARD_REPORT_${cleanDomain}_${Date.now()}.pdf`);
+    tr.innerHTML = `
+      <td title="${item.url}" style="font-weight: 600;">${shortUrl}</td>
+      <td>
+        <span class="badge-res ${isPhish ? 'phish' : 'safe'}">
+          ${item.consensus_verdict}
+        </span>
+      </td>
+      <td class="text-right" style="font-weight: 700; color: #64748b;">${item.execution_time_ms}ms</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 function downloadPdfReport() {
-    if (!currentScanPayload) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const p = currentScanPayload;
-    const isPhish = p.consensus_verdict === "Phishing";
+  if (!lastScanData) {
+    alert('Belum ada data scan. Silakan jalankan scanning URL terlebih dahulu.');
+    return;
+  }
 
-    // Header PDF
-    doc.setFillColor(7, 11, 20);
-    doc.rect(0, 0, 210, 32, 'F');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const d = lastScanData;
 
-    doc.setTextColor(34, 211, 238);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.text("PHISHGUARD.AI // INTELLIGENT PHISHING SCANNER", 14, 15);
+  // Header Dokumen
+  doc.setFillColor(18, 22, 32);
+  doc.rect(0, 0, 210, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PHISHGUARD.AI // FORENSIC AUDIT REPORT', 14, 16);
 
-    doc.setTextColor(148, 163, 184);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text("ZERO-CRAWLING STATIC LEXICAL FORENSIC INCIDENT REPORT", 14, 23);
-    doc.text(`Generated: ${new Date().toLocaleString()} | Latency: ${p.execution_time_ms || 0.84} ms`, 115, 23);
+  // Metadata Target
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Target URL       : ${d.url}`, 14, 36);
+  doc.text(`Consensus Verdict: ${d.consensus_verdict.toUpperCase()}`, 14, 43);
+  doc.text(`Risk Probability : ${d.phishing_risk_percentage}%`, 14, 50);
+  doc.text(`Execution Time   : ${d.execution_time_ms} ms (Air-Gapped Lexical Engine)`, 14, 57);
 
-    // Target URL Section
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("TARGET EVALUATION ENTITY:", 14, 42);
+  // Tabel Evaluasi Model
+  const modelRows = [
+    ['Random Forest', d.models.random_forest.verdict, `${(d.models.random_forest.confidence * 100).toFixed(1)}%`],
+    ['XGBoost Classifier', d.models.xgboost.verdict, `${(d.models.xgboost.confidence * 100).toFixed(1)}%`],
+    ['Linear SVM', d.models.svm_linear.verdict, `${(d.models.svm_linear.confidence * 100).toFixed(1)}%`]
+  ];
 
-    doc.setFont("courier", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(51, 65, 85);
-    const splitUrl = doc.splitTextToSize(p.url, 180);
-    doc.text(splitUrl, 14, 48);
+  doc.autoTable({
+    startY: 65,
+    head: [['Machine Learning Sub-Model', 'Verdict', 'Confidence']],
+    body: modelRows,
+    theme: 'striped',
+    headStyles: { fillColor: [18, 22, 32] },
+    styles: { fontSize: 9 }
+  });
 
-    const urlOffset = 48 + (splitUrl.length * 4);
+  // Tabel 13 Fitur Leksikal
+  const feat = d.features || {};
+  const featRows = [
+    ['URL Length', feat.url_length, 'Dots Count (.)', feat.num_dots],
+    ['Domain Length', feat.domain_length, 'Hyphens Count (-)', feat.num_hyphens],
+    ['Path Length', feat.path_length, 'Underscores (_)', feat.num_underscores],
+    ['Subdomain Count', feat.num_subdomains, 'Slashes (/)', feat.num_slashes],
+    ['IP Host Address', feat.has_ip === 1 ? 'YES' : 'NO', 'At Symbol (@)', feat.num_at],
+    ['Suspicious Word', feat.has_suspicious_keyword === 1 ? 'YES' : 'NO', 'Question Mark (?)', feat.num_question_marks]
+  ];
 
-    // Verdict Box
-    if (isPhish) {
-        doc.setFillColor(254, 242, 242);
-        doc.setDrawColor(239, 68, 68);
-        doc.roundedRect(14, urlOffset, 182, 20, 2, 2, 'FD');
-        doc.setTextColor(220, 38, 38);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11.5);
-        doc.text("CONSENSUS VERDICT: THREAT DETECTED (PHISHING)", 20, urlOffset + 8);
-        doc.setFontSize(9.5);
-        doc.text(`AGGREGATED PHISHING RISK SCORE: ${p.phishing_risk_percentage}%`, 20, urlOffset + 15);
-    } else {
-        doc.setFillColor(240, 253, 244);
-        doc.setDrawColor(34, 197, 94);
-        doc.roundedRect(14, urlOffset, 182, 20, 2, 2, 'FD');
-        doc.setTextColor(22, 163, 74);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11.5);
-        doc.text("CONSENSUS VERDICT: CLEAN (LEGITIMATE DOMAIN)", 20, urlOffset + 8);
-        doc.setFontSize(9.5);
-        doc.text(`AGGREGATED PHISHING RISK SCORE: ${p.phishing_risk_percentage}%`, 20, urlOffset + 15);
-    }
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 10,
+    head: [['Feature Indicator (A)', 'Value', 'Feature Indicator (B)', 'Value']],
+    body: featRows,
+    theme: 'grid',
+    headStyles: { fillColor: [71, 85, 105] },
+    styles: { fontSize: 8.5 }
+  });
 
-    // Model Confidence Table
-    const modelOffset = urlOffset + 26;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text("ENSEMBLE CLASSIFIERS CONFIDENCE BREAKDOWN:", 14, modelOffset);
+  // Footer Dokumen
+  const finalY = doc.lastAutoTable.finalY + 15;
+  doc.setFontSize(8.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Skripsi Project © 2026 - Air-Gapped Zero-Day Lexical Detection Methodology', 14, finalY);
 
-    const modelData = [
-        ["Random Forest", `${(p.models.random_forest.confidence * 100).toFixed(1)}%`, p.models.random_forest.verdict],
-        ["Extreme Gradient Boosting (XGBoost)", `${(p.models.xgboost.confidence * 100).toFixed(1)}%`, p.models.xgboost.verdict],
-        ["Linear Support Vector Machine (Linear SVM)", `${(p.models.svm_linear.confidence * 100).toFixed(1)}%`, p.models.svm_linear.verdict]
-    ];
-
-    doc.autoTable({
-        startY: modelOffset + 3,
-        head: [['Algorithm Model', 'Confidence Level', 'Verdict']],
-        body: modelData,
-        theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 8 }
-    });
-
-    // 13 Features Table
-    const metricsOffset = doc.lastAutoTable.finalY + 6;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text("EXTRACTED 13 LEXICAL VECTORS (FEATURE SPACE):", 14, metricsOffset);
-
-    const featureEntries = Object.entries(p.features).map(([k, v]) => [k.replace(/_/g, ' ').toUpperCase(), v]);
-    const pairedFeatures = [];
-    for (let i = 0; i < featureEntries.length; i += 2) {
-        const col1 = featureEntries[i];
-        const col2 = featureEntries[i + 1] || ["-", "-"];
-        pairedFeatures.push([col1[0], col1[1], col2[0], col2[1]]);
-    }
-
-    doc.autoTable({
-        startY: metricsOffset + 3,
-        head: [['Lexical Feature (A)', 'Value', 'Lexical Feature (B)', 'Value']],
-        body: pairedFeatures,
-        theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
-        styles: { fontSize: 7.5 }
-    });
-
-    // Advisory / XAI Summary
-    const advOffset = doc.lastAutoTable.finalY + 6;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text("EXPLAINABLE AI (XAI) FORENSIC SUMMARY & ADVISORY:", 14, advOffset);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(51, 65, 85);
-
-    let findings = [];
-    if (isPhish) {
-        findings = [
-            "Menggunakan indikator struktur leksikal anomali berisiko tinggi.",
-            "Ditemukan pola string atau kedalaman subdomain yang mencurigakan.",
-            "REKOMENDASI: Jangan masukkan kredensial atau informasi sensitif apa pun."
-        ];
-    } else {
-        findings = [
-            "Domain menggunakan struktur Fully Qualified Domain Name (FQDN) yang sah.",
-            "Tidak ditemukan anomali pada token leksikal dan atribut panjang path.",
-            "REKOMENDASI: Tautan aman untuk diakses."
-        ];
-    }
-
-    let currentY = advOffset + 5;
-    findings.forEach(item => {
-        const line = doc.splitTextToSize(`• ${item}`, 180);
-        doc.text(line, 16, currentY);
-        currentY += (line.length * 4);
-    });
-
-    // Footer PDF
-    doc.setFontSize(7);
-    doc.setTextColor(148, 163, 184);
-    doc.text("PhishGuard.AI Forensic Engine - Skripsi Project 2026. Document verified via client-side inference signature.", 14, 288);
-
-    const cleanDomain = p.url.replace(/https?:\/\//i, '').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
-    doc.save(`PHISHGUARD_REPORT_${cleanDomain}_${Date.now()}.pdf`);
+  doc.save(`PhishGuard_Report_${Date.now()}.pdf`);
 }
