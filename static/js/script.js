@@ -324,7 +324,7 @@ function addAuditHistory(data) {
     const shortUrl = item.url.length > 28 ? item.url.substring(0, 26) + '...' : item.url;
 
     tr.innerHTML = `
-      <td title="${item.url}" style="font-weight: 600;">${shortUrl}</td>
+      <td class="url-cell" title="${item.url}" style="font-weight: 600;">${shortUrl}</td>
       <td>
         <span class="badge-res ${isPhish ? 'phish' : 'safe'}">
           ${item.consensus_verdict}
