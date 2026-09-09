@@ -107,7 +107,7 @@ body {
   transition: all 0.2s ease;
 }
 
-.sidebar-btn.active, .sidebar-btn:hover {
+.sidebar-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
 }
@@ -115,22 +115,6 @@ body {
 .sidebar-btn:focus-visible {
   outline: 2px solid #fb923c;
   outline-offset: 2px;
-}
-
-.panel-focus {
-  animation: panelFocus 1.1s ease;
-}
-
-@keyframes panelFocus {
-  0% {
-    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.35);
-  }
-  35% {
-    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.28);
-  }
-  100% {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  }
 }
 
 .sidebar-footer {
@@ -598,6 +582,82 @@ body {
   margin-top: 3px;
 }
 
+.tile.is-safe,
+.tile.is-risk {
+  padding-bottom: 26px;
+  border: none;
+  color: #ffffff;
+}
+
+.tile.is-safe::after,
+.tile.is-risk::after {
+  position: absolute;
+  left: 10px;
+  bottom: 6px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.tile.is-safe {
+  background: linear-gradient(135deg, #34d399, #2dd4bf);
+  box-shadow: 0 8px 16px rgba(16, 185, 129, 0.22);
+}
+
+.tile.is-risk {
+  background: linear-gradient(135deg, #fb7185, #f472b6);
+  box-shadow: 0 8px 16px rgba(244, 63, 94, 0.22);
+}
+
+.tile.is-safe .tile-label,
+.tile.is-risk .tile-label,
+.tile.is-safe .tile-val,
+.tile.is-risk .tile-val,
+.tile.is-safe .tile-sub,
+.tile.is-risk .tile-sub {
+  color: #ffffff;
+}
+
+.tile.is-safe .tile-label,
+.tile.is-risk .tile-label {
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.tile.is-safe::after {
+  content: 'AMAN';
+}
+
+.tile.is-risk::after {
+  content: 'RISIKO';
+}
+
+.tile.is-safe .btn-info-modal,
+.tile.is-risk .btn-info-modal,
+.tile.is-safe:hover .btn-info-modal,
+.tile.is-safe:focus-within .btn-info-modal,
+.tile.is-risk:hover .btn-info-modal,
+.tile.is-risk:focus-within .btn-info-modal {
+  color: #ffffff;
+}
+
+.tile.is-safe:hover .btn-info-modal,
+.tile.is-safe .btn-info-modal:hover,
+.tile.is-safe .btn-info-modal:focus-visible,
+.tile.is-risk:hover .btn-info-modal,
+.tile.is-risk .btn-info-modal:hover,
+.tile.is-risk .btn-info-modal:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
 /* Export Card */
 .card-export {
   display: flex;
@@ -626,20 +686,36 @@ body {
   color: var(--text-muted);
 }
 
+.export-actions {
+  display: flex;
+  gap: 8px;
+  align-self: stretch;
+  justify-content: flex-end;
+}
+
 .btn-export {
-  width: 48px;
-  height: 48px;
-  border-radius: 18px;
-  align-self: flex-end;
+  min-width: 48px;
+  height: 52px;
+  padding: 6px 8px;
+  border-radius: 16px;
   border: none;
   background: #fff1f2;
   color: #f43f5e;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   transition: all 0.2s ease;
+}
+
+.btn-export span {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
 }
 
 .btn-export:hover {
@@ -1199,4 +1275,226 @@ body {
 
 .edu-modal-ok:active {
   transform: scale(0.98);
+}
+
+.scan-required-card {
+  width: min(400px, 100%);
+}
+
+.edu-modal-idle {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.edu-modal-idle[hidden],
+.edu-modal-context-block[hidden] {
+  display: none !important;
+}
+
+.edu-modal-context-block {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edu-modal-value-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.edu-value-badge,
+.edu-eval-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.2px;
+}
+
+.edu-value-badge {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.edu-value-badge.is-safe {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.edu-value-badge.is-risk {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.edu-eval-badge.is-safe {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.edu-eval-badge.is-risk {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.edu-modal-context {
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.edu-modal-context.is-safe {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-color: #bbf7d0;
+}
+
+.edu-modal-context.is-risk {
+  background: linear-gradient(180deg, #fff7ed 0%, #fef2f2 100%);
+  border-color: #fed7aa;
+}
+
+.edu-modal-context-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.edu-modal-context.is-safe .edu-modal-context-label {
+  color: #166534;
+}
+
+.edu-modal-context.is-risk .edu-modal-context-label {
+  color: #c2410c;
+}
+
+.edu-modal-context p {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.history-modal-card {
+  width: min(820px, 100%);
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.history-table-wrap {
+  margin-top: 14px;
+  min-height: 180px;
+  max-height: min(48vh, 380px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.history-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.history-table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #94a3b8;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.history-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.history-table td.url-cell {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.history-table td.time-cell {
+  white-space: nowrap;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-modal-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.btn-clear-history {
+  flex: 1;
+  min-width: 180px;
+  padding: 12px 16px;
+  border: 1px solid #fecdd3;
+  border-radius: 14px;
+  background: #fff1f2;
+  color: #be123c;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.15s, transform 0.15s;
+}
+
+.btn-clear-history:hover {
+  background: #ffe4e6;
+}
+
+.history-close-btn {
+  flex: 1;
+  min-width: 140px;
+  margin-top: 0;
+  width: auto;
+}
+
+@media (max-width: 768px) {
+  .history-modal-card {
+    width: 100%;
+  }
+
+  .edu-modal-value-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

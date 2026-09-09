@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
   <!-- Local Stylesheet -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=17">
 </head>
 <body>
 
@@ -24,13 +24,7 @@
           <i class="fa-solid fa-shield-halved"></i>
         </div>
         <nav class="sidebar-menu">
-          <button type="button" class="sidebar-btn active" data-nav="dashboard" title="Dashboard Analitik">
-            <i class="fa-solid fa-chart-pie"></i>
-          </button>
-          <button type="button" class="sidebar-btn" data-nav="features" title="13 Vektor Fitur">
-            <i class="fa-solid fa-network-wired"></i>
-          </button>
-          <button type="button" class="sidebar-btn" data-nav="stream" title="Incident Stream">
+          <button type="button" class="sidebar-btn" id="historyNavBtn" title="Riwayat Audit Lengkap" aria-haspopup="dialog">
             <i class="fa-solid fa-clock-rotate-left"></i>
           </button>
         </nav>
@@ -44,7 +38,7 @@
     <main class="workspace">
       
       <!-- Baris Atas: Judul & Input Bar -->
-      <header class="top-header" id="panel-dashboard">
+      <header class="top-header">
         <div class="page-title">
           <div class="title-row">
             <h1>Security Analytics</h1>
@@ -141,18 +135,29 @@
           <div class="card card-export">
             <div>
               <div class="export-label">Export Dokumen</div>
-              <div class="export-title">Laporan Forensik PDF</div>
-              <div class="export-sub">Standar dokumentasi skripsi &amp; audit</div>
+              <div class="export-title">Laporan Forensik</div>
+              <div class="export-sub">PDF, LOG, dan JSON untuk dokumentasi skripsi &amp; audit</div>
             </div>
-            <button id="downloadPdfBtn" class="btn-export" title="Unduh Laporan PDF">
-              <i class="fa-solid fa-file-arrow-down"></i>
-            </button>
+            <div class="export-actions">
+              <button type="button" id="downloadPdfBtn" class="btn-export" title="Unduh Laporan PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>PDF</span>
+              </button>
+              <button type="button" id="downloadLogBtn" class="btn-export" title="Unduh Laporan LOG">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>LOG</span>
+              </button>
+              <button type="button" id="downloadJsonBtn" class="btn-export" title="Unduh Laporan JSON">
+                <i class="fa-solid fa-file-code"></i>
+                <span>JSON</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- Baris bawah: fitur + stream mengisi sisa tinggi -->
         <div class="bottom-row">
-          <div class="card card-features" id="panel-features">
+          <div class="card card-features">
             <div class="features-header">
               <div>
                 <h2>13 Lexical Vectors Analysis</h2>
@@ -239,7 +244,7 @@
             </div>
           </div>
 
-          <div class="card card-stream" id="panel-stream">
+          <div class="card card-stream">
             <div class="stream-header">
               <div>
                 <span class="stream-title">Live Incident Stream</span>
@@ -289,6 +294,25 @@
       </div>
       <h3 id="modalTitle" class="edu-modal-title">Judul Fitur</h3>
       <p id="modalDesc" class="edu-modal-desc"></p>
+
+      <div id="modalIdleNote" class="edu-modal-idle">
+        Lakukan scan URL terlebih dahulu untuk melihat analisis kontekstual real-time.
+      </div>
+
+      <div id="modalContextBlock" class="edu-modal-context-block" hidden>
+        <div class="edu-modal-value-row">
+          <span id="modalValueBadge" class="edu-value-badge">Nilai Terdeteksi: —</span>
+          <span id="modalEvalBadge" class="edu-eval-badge">Kondisi Normal / Aman</span>
+        </div>
+        <div class="edu-modal-context">
+          <div class="edu-modal-context-label">
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            Analisis Spesifik URL Ini
+          </div>
+          <p id="modalContextText"></p>
+        </div>
+      </div>
+
       <div class="edu-modal-risk">
         <div class="edu-modal-risk-label">
           <i class="fa-solid fa-shield-halved"></i>
@@ -300,7 +324,66 @@
     </div>
   </div>
 
+  <!-- Modal Riwayat Audit Lengkap -->
+  <div id="historyModal" class="edu-modal history-modal" aria-hidden="true">
+    <div class="edu-modal-backdrop" data-history-dismiss></div>
+    <div class="edu-modal-card history-modal-card" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+      <button type="button" class="edu-modal-x" id="historyCloseX" title="Tutup" aria-label="Tutup">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="edu-modal-kicker">
+        <span class="edu-modal-badge">Sesi Aktif</span>
+      </div>
+      <h3 id="historyModalTitle" class="edu-modal-title">Riwayat Audit &amp; Pemindaian Lengkap</h3>
+      <p class="edu-modal-desc">Daftar seluruh URL yang dipindai pada sesi browser ini. Data tersimpan di session storage dan hilang saat tab ditutup.</p>
+
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Target URL</th>
+              <th>Vonis Konsensus</th>
+              <th class="text-right">Latensi (ms)</th>
+            </tr>
+          </thead>
+          <tbody id="fullHistoryTableBody">
+            <tr>
+              <td colspan="4" class="table-empty">Belum ada riwayat pemindaian</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="history-modal-actions">
+        <button type="button" class="btn-clear-history" id="clearHistoryBtn">
+          <i class="fa-solid fa-trash-can"></i>
+          Hapus Semua Riwayat
+        </button>
+        <button type="button" class="edu-modal-ok history-close-btn" id="historyCloseBtn">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: export tanpa scan -->
+  <div id="scanRequiredModal" class="edu-modal" aria-hidden="true">
+    <div class="edu-modal-backdrop" data-scan-required-dismiss></div>
+    <div class="edu-modal-card scan-required-card" role="dialog" aria-modal="true" aria-labelledby="scanRequiredTitle">
+      <button type="button" class="edu-modal-x" id="scanRequiredCloseX" title="Tutup" aria-label="Tutup">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="edu-modal-kicker">
+        <span class="edu-modal-badge">Export</span>
+      </div>
+      <h3 id="scanRequiredTitle" class="edu-modal-title">Silakan scan URL terlebih dahulu</h3>
+      <p class="edu-modal-desc">
+        File <strong id="scanRequiredFormat">PDF</strong> belum bisa diunduh. Masukkan URL target, lalu tekan Scan URL agar laporan forensik tersedia.
+      </p>
+      <button type="button" class="edu-modal-ok" id="scanRequiredOk">Mengerti</button>
+    </div>
+  </div>
+
   <!-- Local Script -->
-  <script src="{{ url_for('static', filename='js/script.js') }}?v=8"></script>
+  <script src="{{ url_for('static', filename='js/script.js') }}?v=16"></script>
 </body>
 </html>
